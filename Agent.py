@@ -24,7 +24,7 @@ class Agent():
         self.memory = Memory
         self.device = device
         
-        self.target_entropy = -0.98 * np.log(1/n_actions)  # -dim(A)
+        self.target_entropy = -0.98 * np.log(1/n_actions)
         self.log_alpha = torch.tensor(np.log(1), requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp().detach()
         self.alpha_optim = optim.Adam([self.log_alpha], lr)
