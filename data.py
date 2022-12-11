@@ -5,7 +5,7 @@ class Data():
     def __init__(self):
         self.svg_path = "./database"
         self.svg_file_name = "CartPole-v1"
-        self.fields = ["Gen", "Score", "Running Score", "Actor Loss", "Running Actor Loss", "Critic Loss", "Running Critic Loss", "Alpha Loss", "Running Alpha Loss", "Alpha"]
+        self.fields = ["Gen", "Score", "Running Score", "Actor Loss", "Running Actor Loss", "Critic 1 Loss", "Running Critic 1 Loss", "Critic 2 Loss", "Running Critic 2 Loss", "Alpha Loss", "Running Alpha Loss", "Alpha"]
         self.info = {}
         
         self.create_fields()

@@ -27,7 +27,8 @@ data = data.Data()
 gen = 0
 score = []
 actor_loss = []
-critic_loss = []
+critic1_loss = []
+critic2_loss = []
 alpha_loss = []
 
 while True:
@@ -48,20 +49,22 @@ while True:
         if is_dead:
             break
     
-    actor_temp, critic_temp, alpha_temp = agent.train(batch_size)
+    actor_temp, critic1_temp, critic2_temp, alpha_temp = agent.train(batch_size)
     gen += 1
     actor_loss.append(actor_temp)
-    critic_loss.append(critic_temp)
+    critic1_loss.append(critic1_temp)
+    critic2_loss.append(critic2_temp)
     alpha_loss.append(alpha_temp)
     score.append(curr_reward)
     
     if len(score) > 100:
         score.pop(0)
         actor_loss.pop(0)
-        critic_loss.pop(0)
+        critic1_loss.pop(0)
+        critic2_loss.pop(0)
         alpha_loss.pop(0)
-        data.update_data([gen, score[-1], sum(score)/100, actor_loss[-1], sum(actor_loss)/100, critic_loss[-1], sum(critic_loss)/100, alpha_loss[-1], sum(alpha_loss)/100, agent.alpha.item()])
+        data.update_data([gen, score[-1], sum(score)/100, actor_loss[-1], sum(actor_loss)/100, critic1_loss[-1], sum(critic1_loss)/100, critic2_loss[-1], sum(critic2_loss)/100, alpha_loss[-1], sum(alpha_loss)/100, agent.alpha.item()])
     else:
-        data.update_data([gen, score[-1], 0, actor_loss[-1], 0, critic_loss[-1], 0, alpha_loss[-1], 0, agent.alpha.item()])
+        data.update_data([gen, score[-1], 0, actor_loss[-1], 0, critic1_loss[-1], 0, critic2_loss[-1], 0, alpha_loss[-1], 0, agent.alpha.item()])
 
     state = env.reset()

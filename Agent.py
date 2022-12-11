@@ -1,32 +1,33 @@
 import Network
 import torch.optim as optim
+import copy
 import torch
 import numpy as np
 
 class Agent():
     def __init__(self, lr, input_dims, tau, n_actions, Memory, delta, device):
-        self.critic_local = Network.CriticNetwork(input_dims)
-        self.critic_local2 = Network.CriticNetwork(input_dims)
+        self.critic_local = Network.CriticNetwork(input_dims, n_actions)
+        self.critic_local2 = Network.CriticNetwork(input_dims, n_actions)
         
         self.critic_optim = optim.Adam(self.critic_local.parameters(), lr)
         self.critic_optim2 = optim.Adam(self.critic_local2.parameters(), lr)
         
-        self.critic_target = Network.CriticNetwork(input_dims)
+        self.critic_target = Network.CriticNetwork(input_dims, n_actions)
         self.copy_model_over(self.critic_local, self.critic_target)
-        self.critic_target2 = Network.CriticNetwork(input_dims)
+        self.critic_target2 = Network.CriticNetwork(input_dims, n_actions)
         self.copy_model_over(self.critic_local2, self.critic_target2)
 
         self.actor = Network.ActorNetwork(input_dims, n_actions)
-        self.actor_optim = optim.Adam(self.actor.parameters())
+        self.actor_optim = optim.Adam(self.actor.parameters(), lr)
         
         self.tau = tau
         self.memory = Memory
         self.device = device
         
         self.target_entropy = -0.98 * np.log(1/n_actions)  # -dim(A)
-        self.log_alpha = torch.tensor([0.0], requires_grad=True, device=self.device)
+        self.log_alpha = torch.tensor(np.log(1), requires_grad=True, device=self.device)
         self.alpha = self.log_alpha.exp().detach()
-        self.alpha_optim = optim.Adam(params=[self.log_alpha], lr=lr)
+        self.alpha_optim = optim.Adam([self.log_alpha], lr)
                 
         self.delta = delta
         
@@ -36,7 +37,7 @@ class Agent():
     
     def train(self, batch_size):
         if self.memory.mem_cntr >= batch_size:
-            states, actions, states_, rewards, dones = self.memory.sample_transitions(batch_size)
+            states, actions, rewards, states_, dones = self.memory.sample_buffer(batch_size)
             
             states = torch.from_numpy(states).to(self.device)
             actions = torch.from_numpy(actions).to(self.device)
@@ -64,13 +65,13 @@ class Agent():
             
             alpha_loss = self.temp_loss(log_action_probs)
             
-            alpha_loss.backward(retain_graph=True)
+            alpha_loss.backward()
             self.alpha_optim.step()
             self.alpha = self.log_alpha.exp()
             
             self.soft_update_target_networks()
-            return actor_loss.item(), critic_loss.item() + critic_loss2.item(), alpha_loss.item()
-        return 0, 0, 0
+            return actor_loss.item(), critic_loss.item(), critic_loss2.item(), alpha_loss.item()
+        return 0, 0, 0, 0
         
     def critic_loss(self, action_probs, log_probs, states, states_, rewards, dones, actions):
         
@@ -82,8 +83,8 @@ class Agent():
             
             next_q_values = (rewards + (1 - dones.to(dtype=torch.int)) * self.delta * soft_state_values.sum(dim=-1)).unsqueeze(-1)
         
-        soft_q_values = self.critic_local(states)
-        soft_q_values2 = self.critic_local2(states)
+        soft_q_values = self.critic_local(states).gather(1, actions.unsqueeze(-1).long())
+        soft_q_values2 = self.critic_local2(states).gather(1, actions.unsqueeze(-1).long())
         critic_loss = torch.nn.functional.mse_loss(soft_q_values, next_q_values)
         critic_loss2 =  torch.nn.functional.mse_loss(soft_q_values2, next_q_values)
         
@@ -94,9 +95,10 @@ class Agent():
         q_values_local = self.critic_local(states)
         q_values_local2 = self.critic_local2(states)
         
-        actor_loss = (action_probs * (log_action_probs * self.alpha.detach() - torch.min(q_values_local, q_values_local2))).sum(-1).mean()
-        log_action_pi = torch.sum(log_action_probs * action_probs, dim=-1)
-        return actor_loss, log_action_pi
+        
+        inside_term = self.alpha * log_action_probs * torch.min(q_values_local, q_values_local2)
+        actor_loss = (action_probs * inside_term.detach()).sum(-1).mean()
+        return actor_loss, log_action_probs
     
     def temp_loss(self, log_action_probs):
         alpha_loss = -(self.log_alpha.exp() * (log_action_probs + self.target_entropy).detach()).mean()

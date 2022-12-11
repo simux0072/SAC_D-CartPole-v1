@@ -9,15 +9,15 @@ def hidden_init(layer):
     return (-lim, lim)
 
 class CriticNetwork(nn.Module):
-    def __init__(self, input_dims):
+    def __init__(self, input_dims, n_actions):
         super(CriticNetwork, self).__init__()
         self.input_dims = input_dims
         self.dtype = torch.float32
+        self.n_actions = n_actions
         
         self.fc1 = nn.Linear(in_features=input_dims, out_features=36, dtype=self.dtype)
         self.fc2 = nn.Linear(in_features=36, out_features=36, dtype=self.dtype)
-        self.fc3 = nn.Linear(in_features=36, out_features=36, dtype=self.dtype)
-        self.q = nn.Linear(in_features=36, out_features=1, dtype=self.dtype)
+        self.q = nn.Linear(in_features=36, out_features=self.n_actions, dtype=self.dtype)
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
@@ -33,7 +33,6 @@ class CriticNetwork(nn.Module):
     def forward(self, state):
         res = torch.relu(self.fc1(state))
         res = torch.relu(self.fc2(res))
-        # res = torch.relu(self.fc3(res))
         
         q_val = self.q(res)
         
@@ -50,7 +49,6 @@ class ActorNetwork(nn.Module):
         self.fc1 = nn.Linear(in_features=input_dims, out_features=36, dtype=self.dtype)
         self.fc2 = nn.Linear(in_features=36, out_features=36, dtype=self.dtype)
         self.fc3 = nn.Linear(in_features=36, out_features=n_actions, dtype=self.dtype)
-        # self.dist = nn.Linear(in_features=256, out_features=n_actions, dtype=self.dtype)
         self.softmax = nn.Softmax(dim=-1)
         
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -59,9 +57,7 @@ class ActorNetwork(nn.Module):
     def forward(self, state):
         res = torch.relu(self.fc1(state))
         res = torch.relu(self.fc2(res))
-        # res = torch.relu(self.fc3(res))
         res = self.fc3(res)
-        # res = self.dist(res)
         
         action_probs = self.softmax(res)
         dist = Categorical(action_probs)
